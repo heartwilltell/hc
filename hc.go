@@ -14,7 +14,7 @@ type HealthChecker interface {
 	Health(ctx context.Context) error
 }
 
-// NewMultiChecker takes several health checker and performs
+// NewMultiChecker takes several health checkers and performs
 // health checks for each of them concurrently.
 func NewMultiChecker(hcs ...HealthChecker) *MultiChecker {
 	c := MultiChecker{
