@@ -1,0 +1,1 @@
+# 👩‍⚕️👨‍⚕️ hc - Simple health check wrapper 
