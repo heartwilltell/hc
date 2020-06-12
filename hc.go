@@ -52,7 +52,7 @@ func (c *MultiChecker) Health(ctx context.Context) error {
 		}(ctx, &s, check.Health)
 	}
 
-	s.wg.Wait()
+	s.Wait()
 	return s.err
 }
 
