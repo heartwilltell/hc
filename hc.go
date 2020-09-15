@@ -34,7 +34,11 @@ type MultiChecker struct {
 // Returns nil in case of success or an error in case
 // of a failure.
 func (c *MultiChecker) Health(ctx context.Context) error {
-	var s Synchronizer
+	hctx, cancel := context.WithCancel(ctx)
+
+	s := Synchronizer{
+		cancel: cancel,
+	}
 
 	for _, check := range c.hcs {
 		s.Add(1)
@@ -47,9 +51,10 @@ func (c *MultiChecker) Health(ctx context.Context) error {
 			default:
 				if err := check(ctx); err != nil {
 					s.SetError(err)
+					s.cancel()
 				}
 			}
-		}(ctx, &s, check.Health)
+		}(hctx, &s, check.Health)
 	}
 
 	s.Wait()
@@ -58,9 +63,10 @@ func (c *MultiChecker) Health(ctx context.Context) error {
 
 // Synchronizer holds synchronization mechanics.
 type Synchronizer struct {
-	wg  sync.WaitGroup
-	so  sync.Once
-	err error
+	wg     sync.WaitGroup
+	so     sync.Once
+	err    error
+	cancel func()
 }
 
 // Error returns a string representation of underlying error.
@@ -95,4 +101,11 @@ func (s *Synchronizer) Add(delta int) {
 // Wait wraps the sync.WaitGroup Wait method.
 func (s *Synchronizer) Wait() {
 	s.wg.Wait()
+}
+
+// Cancel calls underlying cancel function
+// to cancel context, which passed to all
+// health checks function.
+func (s *Synchronizer) Cancel() {
+	s.cancel()
 }
