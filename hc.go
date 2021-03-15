@@ -61,6 +61,9 @@ func (c *MultiChecker) Health(ctx context.Context) error {
 	return s.err
 }
 
+// Add appends health HealthChecker to internal slice of HealthCheckers.
+func (c *MultiChecker) Add(hc HealthChecker) { c.hcs = append(c.hcs, hc) }
+
 // Synchronizer holds synchronization mechanics.
 type Synchronizer struct {
 	wg     sync.WaitGroup
@@ -71,37 +74,23 @@ type Synchronizer struct {
 
 // Error returns a string representation of underlying error.
 // Implements builtin error interface.
-func (s *Synchronizer) Error() string {
-	return s.err.Error()
-}
+func (s *Synchronizer) Error() string { return s.err.Error() }
 
 // SetError sets an error to the Synchronizer structure.
 // Uses sync.Once to set error only once.
-func (s *Synchronizer) SetError(err error) {
-	s.so.Do(func() {
-		s.err = err
-	})
-}
+func (s *Synchronizer) SetError(err error) { s.so.Do(func() { s.err = err }) }
 
 // Do wraps the sync.Once Do method.
-func (s *Synchronizer) Do(f func()) {
-	s.so.Do(f)
-}
+func (s *Synchronizer) Do(f func()) { s.so.Do(f) }
 
 // Done wraps the sync.WaitGroup Done method.
-func (s *Synchronizer) Done() {
-	s.wg.Done()
-}
+func (s *Synchronizer) Done() { s.wg.Done() }
 
 // Add wraps the sync.WaitGroup Add method.
-func (s *Synchronizer) Add(delta int) {
-	s.wg.Add(delta)
-}
+func (s *Synchronizer) Add(delta int) { s.wg.Add(delta) }
 
 // Wait wraps the sync.WaitGroup Wait method.
-func (s *Synchronizer) Wait() {
-	s.wg.Wait()
-}
+func (s *Synchronizer) Wait() { s.wg.Wait() }
 
 // Cancel calls underlying cancel function
 // to cancel context, which passed to all
