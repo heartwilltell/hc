@@ -7,7 +7,8 @@ linters:
   enable:
     - asciicheck # Simple linter to check that your code does not contain non-ASCII identifiers.
     - deadcode # Finds unused code.
-    - errcheck # Errcheck is a program for checking for unchecked errors in go programs.
+    - errcheck # Errcheck is a program for checking for unchecked errors in api programs.
+    - errorlint # go-errorlint is a source code linter for Go software that can be used to find code that will cause problems with the error wrapping scheme introduced in Go 1.13.
     - bodyclose # Checks whether HTTP response body is closed successfully.
     - misspell # Finds commonly misspelled English words in comments.
     - govet # Vet examines Go source code and reports suspicious constructs, such as Printf calls whose arguments do not align with the format string.
@@ -19,7 +20,7 @@ linters:
     - whitespace # Tool for detection of leading and trailing whitespace.
     - stylecheck # Stylecheck is a replacement for golint.
     - structcheck # Finds unused struct fields.
-    - scopelint # Scopelint checks for unpinned variables in go programs.
+    - scopelint # Scopelint checks for unpinned variables in api programs.
     - gochecknoinits # Checks that no init functions are present in Go code.
     - goconst # Finds repeated strings that could be replaced by a constant.
     - gocritic # The most opinionated Go source code linter.
@@ -33,9 +34,36 @@ linters:
     - interfacer # Linter that suggests narrower interface types.
     - maligned # Tool to detect Go structs that would take less memory if their fields were sorted.
     - prealloc # Finds slice declarations that could potentially be preallocated.
-    - staticcheck # Staticcheck is a go vet on steroids, applying a ton of static analysis checks.
+    - staticcheck # Staticcheck is a api vet on steroids, applying a ton of static analysis checks.
     - depguard # Go linter that checks if package imports are in a list of acceptable packages.
     - dupl # Tool for code clone detection.
     - nakedret # Finds naked returns in functions greater than a specified function length.
     - gocognit # Computes and checks the cognitive complexity of functions.
     - gocyclo # Computes and checks the cyclomatic complexity of functions.
+    #    - forbidigo # Forbids identifiers
+    #    - gochecknoglobals # check that no global variables exist
+    - exportloopref # checks for pointers to enclosing loop variables
+    - gochecknoinits # Checks that no init functions are present in Go code
+    #    - gci # Gci control golang package import order and make it always deterministic.
+    - exhaustive # check exhaustiveness of enum switch statements
+    #    - godox # Tool for detection of FIXME, TODO and other comment keywords
+    #    - goerr113 # Golang linter to check the errors handling expressions
+    #    - gofumpt # Gofumpt checks whether code was gofumpt-ed.
+    - goheader # Checks is file header matches to pattern
+    #    - gomnd # An analyzer to detect magic numbers.
+    - gomodguard # Allow and block list linter for direct Go module dependencies. This is different from depguard where there are different block types for example version constraints and module recommendations.
+    #    - goprintffuncname # Checks that printf-like functions are named with f at the end
+    #    - lll # Reports long lines
+    #    - makezero # Finds slice declarations with non-zero initial length
+    - nestif # Reports deeply nested if statements
+    #    - nlreturn # nlreturn checks for a new line before return and branch statements to increase code clarity
+    - noctx # noctx finds sending http request without context.Context
+    - nolintlint # Reports ill-formed or insufficient nolint directives
+    - rowserrcheck # checks whether Err of rows is checked successfully
+    - sqlclosecheck # Checks that sql.Rows and sql.Stmt are closed.
+    - testpackage # linter that makes you use a separate _test package
+    - paralleltest # paralleltest detects missing usage of t.Parallel() method in your Go test
+    - tparallel # tparallel detects inappropriate usage of t.Parallel() method in your Go test codes
+    #    - thelper # thelper detects golang test helpers without t.Helper() call and checks the consistency of test helpers
+    #    - wrapcheck # Checks that errors returned from external packages are wrapped
+    #    - wsl # Whitespace Linter - Forces you to use empty lines!
