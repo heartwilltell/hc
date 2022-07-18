@@ -6,6 +6,12 @@ import (
 	"sync"
 )
 
+// Compilation time checks for interface implementation.
+var (
+	_ HealthChecker = (*MultiChecker)(nil)
+	_ HealthChecker = NopChecker{}
+)
+
 // HealthChecker represents logic of making the health check.
 type HealthChecker interface {
 	// Health takes the context and performs the health check.
@@ -59,6 +65,9 @@ func (c *MultiChecker) Add(hc HealthChecker) { c.hcs = append(c.hcs, hc) }
 
 // NopChecker represents nop health checker.
 type NopChecker struct{}
+
+// NewNopChecker returns new instance of NopChecker.
+func NewNopChecker() NopChecker { return NopChecker{} }
 
 func (n NopChecker) Health(context.Context) error { return nil }
 
