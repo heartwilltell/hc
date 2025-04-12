@@ -3,13 +3,19 @@ package hc
 
 import (
 	"context"
+	"fmt"
+	"maps"
 	"sync"
+	"time"
+
+	"golang.org/x/sync/errgroup"
 )
 
 // Compilation time checks for interface implementation.
 var (
 	_ HealthChecker = (*MultiChecker)(nil)
 	_ HealthChecker = NopChecker{}
+	_ HealthChecker = (*MultiServiceChecker)(nil)
 )
 
 // HealthChecker represents logic of making the health check.
@@ -36,32 +42,95 @@ type MultiChecker struct{ hcs []HealthChecker }
 // Returns nil in case of success or an error in case
 // of a failure.
 func (c *MultiChecker) Health(ctx context.Context) error {
-	hctx, cancel := context.WithCancel(ctx)
-	s := Synchronizer{cancel: cancel}
+	g, gctx := errgroup.WithContext(ctx)
 
 	for _, check := range c.hcs {
-		s.Add(1)
-
-		go func(ctx context.Context, s *Synchronizer, check func(ctx context.Context) error) {
-			defer s.Done()
-			select {
-			case <-ctx.Done():
-				s.SetError(ctx.Err())
-			default:
-				if err := check(ctx); err != nil {
-					s.SetError(err)
-					s.cancel()
-				}
-			}
-		}(hctx, &s, check.Health)
+		g.Go(func() error { return check.Health(gctx) })
 	}
 
-	s.Wait()
-	return s.err
+	return g.Wait()
 }
 
 // Add appends health HealthChecker to internal slice of HealthCheckers.
 func (c *MultiChecker) Add(hc HealthChecker) { c.hcs = append(c.hcs, hc) }
+
+// ServiceStatus represents the status of a service health check.
+type ServiceStatus struct {
+	Error     error
+	Duration  time.Duration
+	CheckedAt time.Time
+}
+
+// ServiceReport contains the status of all services.
+type ServiceReport struct {
+	mu sync.RWMutex
+	st map[string]ServiceStatus
+}
+
+// NewServiceReport creates a new ServiceReport.
+func NewServiceReport() *ServiceReport { return &ServiceReport{st: make(map[string]ServiceStatus)} }
+
+// GetStatuses returns a copy of all service statuses.
+func (r *ServiceReport) GetStatuses() map[string]ServiceStatus {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+
+	return maps.Clone(r.st)
+}
+
+// MultiServiceChecker implements the HealthChecker interface for checking multiple services.
+type MultiServiceChecker struct {
+	services map[string]HealthChecker
+	report   *ServiceReport
+}
+
+// NewMultiServiceChecker creates a new MultiServiceChecker with the given services.
+func NewMultiServiceChecker(report *ServiceReport) *MultiServiceChecker {
+	return &MultiServiceChecker{
+		services: make(map[string]HealthChecker),
+		report:   report,
+	}
+}
+
+// AddService adds a service to be checked.
+func (c *MultiServiceChecker) AddService(name string, checker HealthChecker) {
+	c.services[name] = checker
+}
+
+// Health implements the HealthChecker interface.
+func (c *MultiServiceChecker) Health(ctx context.Context) error {
+	if len(c.services) == 0 {
+		return nil
+	}
+
+	var g errgroup.Group
+
+	for name, checker := range c.services {
+		g.Go(func() error {
+			startTime := time.Now()
+
+			err := checker.Health(ctx)
+			if err != nil {
+				err = fmt.Errorf("service %s health check failed: %w", name, err)
+			}
+
+			duration := time.Since(startTime)
+
+			c.report.mu.Lock()
+			defer c.report.mu.Unlock()
+
+			c.report.st[name] = ServiceStatus{
+				Error:     err,
+				Duration:  duration,
+				CheckedAt: time.Now(),
+			}
+
+			return nil
+		})
+	}
+
+	return g.Wait()
+}
 
 // NopChecker represents nop health checker.
 type NopChecker struct{}
@@ -69,9 +138,10 @@ type NopChecker struct{}
 // NewNopChecker returns new instance of NopChecker.
 func NewNopChecker() NopChecker { return NopChecker{} }
 
-func (n NopChecker) Health(context.Context) error { return nil }
+func (NopChecker) Health(context.Context) error { return nil }
 
 // Synchronizer holds synchronization mechanics.
+// Deprecated: Use errgroup.Group instead.
 type Synchronizer struct {
 	wg     sync.WaitGroup
 	so     sync.Once
