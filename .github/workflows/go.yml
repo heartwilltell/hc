@@ -15,7 +15,7 @@ jobs:
       - uses: actions/checkout@v2
       - uses: actions/setup-go@v2
         with:
-          go-version: '^1.18'
+          go-version: '^1.24'
       - run: go test -race -cover ./...
 
   lint:
@@ -24,9 +24,9 @@ jobs:
       - uses: actions/checkout@v2
       - uses: actions/setup-go@v2
         with:
-          go-version: '^1.18'
+          go-version: '^1.24'
 
-      - uses: golangci/golangci-lint-action@v2
+      - uses: golangci/golangci-lint-action@v7
         with:
           version: latest
           args: --timeout=3m
@@ -37,6 +37,6 @@ jobs:
       - uses: actions/checkout@v2
       - uses: actions/setup-go@v2
         with:
-          go-version: '^1.18'
+          go-version: '^1.24'
 
       - run: go build -v .
