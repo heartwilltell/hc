@@ -92,6 +92,15 @@ func NewMultiServiceChecker(report *ServiceReport) *MultiServiceChecker {
 	}
 }
 
+// Report returns a service report.
+func (c *MultiServiceChecker) Report() *ServiceReport {
+	if c.report == nil {
+		return NewServiceReport()
+	}
+
+	return c.report
+}
+
 // AddService adds a service to be checked.
 func (c *MultiServiceChecker) AddService(name string, checker HealthChecker) {
 	c.services[name] = checker
