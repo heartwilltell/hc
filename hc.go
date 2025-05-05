@@ -118,18 +118,13 @@ func (c *MultiServiceChecker) Health(ctx context.Context) error {
 		g.Go(func() error {
 			startTime := time.Now()
 
-			err := checker.Health(ctx)
-			if err != nil {
-				err = fmt.Errorf("service %s health check failed: %w", name, err)
-			}
-
 			duration := time.Since(startTime)
 
 			c.report.mu.Lock()
 			defer c.report.mu.Unlock()
 
 			c.report.st[name] = ServiceStatus{
-				Error:     err,
+				Error:     checker.Health(ctx),
 				Duration:  duration,
 				CheckedAt: time.Now(),
 			}
