@@ -3,7 +3,6 @@ package hc
 
 import (
 	"context"
-	"fmt"
 	"maps"
 	"sync"
 	"time"
@@ -95,7 +94,7 @@ func NewMultiServiceChecker(report *ServiceReport) *MultiServiceChecker {
 // Report returns a service report.
 func (c *MultiServiceChecker) Report() *ServiceReport {
 	if c.report == nil {
-		return NewServiceReport()
+		c.report = NewServiceReport()
 	}
 
 	return c.report
@@ -117,19 +116,19 @@ func (c *MultiServiceChecker) Health(ctx context.Context) error {
 	for name, checker := range c.services {
 		g.Go(func() error {
 			startTime := time.Now()
-
+			checkErr := checker.Health(ctx)
 			duration := time.Since(startTime)
 
 			c.report.mu.Lock()
 			defer c.report.mu.Unlock()
 
 			c.report.st[name] = ServiceStatus{
-				Error:     checker.Health(ctx),
+				Error:     checkErr,
 				Duration:  duration,
 				CheckedAt: time.Now(),
 			}
 
-			return nil
+			return checkErr
 		})
 	}
 
