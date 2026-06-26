@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"reflect"
+	"sync"
 	"testing"
 	"time"
 )
@@ -107,6 +108,42 @@ func TestMultiChecker_Add(t *testing.T) {
 	if !reflect.DeepEqual(mc2.hcs[1], tc2) {
 		t.Errorf("Add after init [1]: expected = %v, got = %v", tc2, mc2.hcs[1])
 	}
+
+	mc3 := NewMultiChecker(tc1)
+	mc3.Add(tc2)
+
+	if len(mc3.hcs) != 2 {
+		t.Fatalf("Add: expected len = 2, got = %d", len(mc3.hcs))
+	}
+	if !reflect.DeepEqual(mc3.hcs[1], tc2) {
+		t.Errorf("Add: expected appended checker = %v, got = %v", tc2, mc3.hcs[1])
+	}
+}
+
+func TestMultiChecker_NilChecker(t *testing.T) {
+	checker := NewMultiChecker(nil)
+
+	if err := checker.Health(context.Background()); !errors.Is(err, ErrNilChecker) {
+		t.Fatalf("Health() error = %v, want %v", err, ErrNilChecker)
+	}
+}
+
+func TestMultiChecker_ConcurrentHealthAndAdd(t *testing.T) {
+	checker := NewMultiChecker(&testChecker{})
+
+	var wg sync.WaitGroup
+	for i := 0; i < 20; i++ {
+		wg.Add(2)
+		go func() {
+			defer wg.Done()
+			_ = checker.Health(context.Background())
+		}()
+		go func() {
+			defer wg.Done()
+			checker.Add(&testChecker{})
+		}()
+	}
+	wg.Wait()
 }
 
 type testChecker struct {
@@ -165,7 +202,7 @@ func TestMultiServiceChecker_Health(t *testing.T) {
 		if status.CheckedAt.IsZero() {
 			t.Errorf("'ok_service' CheckedAt should not be zero")
 		}
-		
+
 		if status.Duration < 0 {
 			t.Errorf("'ok_service' Duration should be non-negative, got %v", status.Duration)
 		}
@@ -222,6 +259,53 @@ func TestMultiServiceChecker_Health(t *testing.T) {
 	} else if status.Error != context.Canceled {
 		t.Errorf("Expected 'cancel_service' error to be context.Canceled, got %v", status.Error)
 	}
+}
+
+func TestMultiServiceChecker_NilReportHealth(t *testing.T) {
+	checker := NewMultiServiceChecker(nil)
+	checker.AddService("ok_service", &testChecker{})
+
+	if err := checker.Health(context.Background()); err != nil {
+		t.Fatalf("Health() error = %v, want nil", err)
+	}
+
+	statuses := checker.Report().GetStatuses()
+	if _, ok := statuses["ok_service"]; !ok {
+		t.Fatal("Status for 'ok_service' not found")
+	}
+}
+
+func TestMultiServiceChecker_NilChecker(t *testing.T) {
+	checker := NewMultiServiceChecker(nil)
+	checker.AddService("nil_service", nil)
+
+	if err := checker.Health(context.Background()); !errors.Is(err, ErrNilChecker) {
+		t.Fatalf("Health() error = %v, want %v", err, ErrNilChecker)
+	}
+
+	status := checker.Report().GetStatuses()["nil_service"]
+	if !errors.Is(status.Error, ErrNilChecker) {
+		t.Fatalf("reported error = %v, want %v", status.Error, ErrNilChecker)
+	}
+}
+
+func TestMultiServiceChecker_ConcurrentHealthAndAddService(t *testing.T) {
+	checker := NewMultiServiceChecker(nil)
+	checker.AddService("initial", &testChecker{})
+
+	var wg sync.WaitGroup
+	for i := 0; i < 20; i++ {
+		wg.Add(2)
+		go func() {
+			defer wg.Done()
+			_ = checker.Health(context.Background())
+		}()
+		go func() {
+			defer wg.Done()
+			checker.AddService("service", &testChecker{})
+		}()
+	}
+	wg.Wait()
 }
 
 func TestMultiServiceChecker_Report(t *testing.T) {
