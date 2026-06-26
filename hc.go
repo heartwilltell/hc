@@ -52,7 +52,7 @@ func (c *MultiChecker) Health(ctx context.Context) error {
 		return nil
 	}
 
-	ctx, cancel := context.WithCancel(ctx)
+	checkCtx, cancel := context.WithCancel(ctx)
 	defer cancel()
 
 	var firstErr firstError
@@ -63,7 +63,7 @@ func (c *MultiChecker) Health(ctx context.Context) error {
 		go func() {
 			defer wg.Done()
 
-			if err := runHealthCheck(ctx, check); err != nil {
+			if err := runHealthCheck(checkCtx, check); err != nil {
 				firstErr.set(err)
 				cancel()
 			}
@@ -141,13 +141,14 @@ type MultiServiceChecker struct {
 
 // NewMultiServiceChecker creates a new MultiServiceChecker with the given services.
 func NewMultiServiceChecker(report *ServiceReport) *MultiServiceChecker {
-	if report == nil {
-		report = NewServiceReport()
+	serviceReport := report
+	if serviceReport == nil {
+		serviceReport = NewServiceReport()
 	}
 
 	return &MultiServiceChecker{
 		services: make(map[string]HealthChecker),
-		report:   report,
+		report:   serviceReport,
 	}
 }
 
@@ -234,6 +235,7 @@ func NewNopChecker() NopChecker { return NopChecker{} }
 func (NopChecker) Health(context.Context) error { return nil }
 
 // Synchronizer holds synchronization mechanics.
+//
 // Deprecated: Use sync.WaitGroup or another coordination primitive instead.
 type Synchronizer struct {
 	wg     sync.WaitGroup
@@ -306,7 +308,7 @@ func isNilHealthChecker(checker HealthChecker) bool {
 
 	value := reflect.ValueOf(checker)
 	switch value.Kind() {
-	case reflect.Chan, reflect.Func, reflect.Interface, reflect.Map, reflect.Ptr, reflect.Slice:
+	case reflect.Chan, reflect.Func, reflect.Interface, reflect.Map, reflect.Pointer, reflect.Slice:
 		return value.IsNil()
 	default:
 		return false
