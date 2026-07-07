@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"errors"
+	"fmt"
 	"log/slog"
 	"net/http"
 	"os"
@@ -31,7 +32,14 @@ func (c upstreamChecker) Health(ctx context.Context) error {
 	return nil
 }
 
-func main() {
+func writeOK(w http.ResponseWriter) {
+	w.WriteHeader(http.StatusOK)
+	if _, err := w.Write([]byte("ok")); err != nil {
+		slog.Error("failed to write response", "error", err)
+	}
+}
+
+func run() error {
 	checker := hc.NewMultiServiceChecker(hc.NewServiceReport())
 	checker.AddService("database", upstreamChecker{name: "database"})
 	checker.AddService("cache", upstreamChecker{name: "cache"})
@@ -48,12 +56,10 @@ func main() {
 			return
 		}
 
-		w.WriteHeader(http.StatusOK)
-		_, _ = w.Write([]byte("ok"))
+		writeOK(w)
 	})
 	mux.HandleFunc("/live", func(w http.ResponseWriter, _ *http.Request) {
-		w.WriteHeader(http.StatusOK)
-		_, _ = w.Write([]byte("ok"))
+		writeOK(w)
 	})
 
 	server := &http.Server{
@@ -65,21 +71,33 @@ func main() {
 	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
 	defer stop()
 
+	errCh := make(chan error, 1)
 	go func() {
 		slog.Info("starting demo server", "port", port)
 		if err := server.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
-			slog.Error("server failed", "error", err)
-			os.Exit(1)
+			errCh <- err
 		}
 	}()
 
-	<-ctx.Done()
+	select {
+	case <-ctx.Done():
+	case err := <-errCh:
+		return fmt.Errorf("server failed: %w", err)
+	}
 
 	shutdownCtx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 
 	if err := server.Shutdown(shutdownCtx); err != nil {
-		slog.Error("shutdown failed", "error", err)
+		return fmt.Errorf("shutdown failed: %w", err)
+	}
+
+	return nil
+}
+
+func main() {
+	if err := run(); err != nil {
+		slog.Error("application error", "error", err)
 		os.Exit(1)
 	}
 }
